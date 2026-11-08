@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0d0f12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<title>Sahne Prompter</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Prompter">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: tek sütunlu editör + altta sabit "Başlat" çubuğu; prompter tam ekran siyah sahne. */
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#eceef1; --surface:#ffffff; --fg:#14171b; --muted:#5b636e; --line:#d3d8de;
+  --tally:#d7301f; --tally-ink:#ffffff; --soft:#f5f6f8;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-read:"Atkinson Hyperlegible",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d0f12; --surface:#16191e; --fg:#e8ebee; --muted:#8e97a3; --line:#2a3038;
+  --tally:#ff5443; --tally-ink:#120403; --soft:#1c2026; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d0f12; --surface:#16191e; --fg:#e8ebee; --muted:#8e97a3; --line:#2a3038;
+  --tally:#ff5443; --tally-ink:#120403; --soft:#1c2026; color-scheme:dark}
+
+[hidden]{display:none!important}
+html,body{height:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-read);font-size:16px;-webkit-text-size-adjust:100%}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--tally);outline-offset:2px}
+
+/* ---------- Editör ---------- */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:#0d0f12}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:-.01em}
+.tally{width:12px;height:12px;border-radius:50%;background:var(--tally);box-shadow:0 0 0 3px color-mix(in srgb,var(--tally) 25%,transparent)}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px;
+  padding-block:16px 120px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row > *{min-width:0}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:15px;min-height:42px}
+.btn:active{transform:translateY(1px)}
+.btn.danger{color:var(--tally)}
+.btn.danger.armed{background:var(--tally);color:var(--tally-ink);border-color:var(--tally)}
+select.btn{flex:1 1 200px}
+.field{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+#titleIn{width:100%;padding:12px 14px;font-family:var(--f-display);font-weight:600;font-size:19px;box-sizing:border-box}
+#bodyIn{width:100%;box-sizing:border-box;min-height:44vh;resize:vertical;padding:14px;font-size:17px;line-height:1.55}
+.meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-family:var(--f-mono);font-size:12.5px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.filebtn{position:relative;overflow:hidden;display:inline-flex;align-items:center}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+details.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+details.panel summary{padding:14px;font-family:var(--f-display);font-weight:600;font-size:16px;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+details.panel summary::after{content:"+";color:var(--muted)}
+details.panel[open] summary::after{content:"–"}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 22px;padding:0 14px 16px}
+.ctl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ctl label{display:flex;justify-content:space-between;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.ctl output{font-family:var(--f-mono);color:var(--fg);letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--tally);height:28px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;padding:9px 6px;font-size:14px;min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;font-size:15px}
+.switch input{width:22px;height:22px;accent-color:var(--tally)}
+.help{padding:0 14px 16px;color:var(--muted);font-size:15px;line-height:1.55}
+.help kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--fg);background:var(--soft)}
+.help ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+.cuehint{color:var(--tally);font-weight:700}
+.startbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:linear-gradient(transparent,var(--bg) 35%);
+  padding-top:24px;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;justify-content:center}
+#startBtn{width:100%;max-width:760px;border:0;border-radius:14px;background:var(--tally);color:var(--tally-ink);
+  font-family:var(--f-display);font-weight:800;font-size:19px;padding:16px;display:flex;gap:10px;align-items:center;justify-content:center;
+  box-shadow:0 8px 24px color-mix(in srgb,var(--tally) 30%,transparent)}
+.toast{position:fixed;left:50%;top:calc(20px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:100;
+  background:#111;color:#fff;border-radius:999px;padding:9px 16px;font-family:var(--f-mono);font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+
+/* ---------- Prompter ---------- */
+#prompter{position:fixed;inset:0;z-index:50;background:#000;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none}
+#stage{position:absolute;inset:0;touch-action:none;transform-origin:50% 50%}
+#scroller{position:absolute;left:0;right:0;top:0;will-change:transform}
+#text{font-family:var(--f-read);font-weight:700;color:#f4f4f2;word-wrap:break-word;overflow-wrap:anywhere;box-sizing:border-box}
+#text p{margin:0 0 .9em}
+#text .cue{color:#ff6b5b;font-weight:400;font-size:.62em;letter-spacing:.04em;text-transform:uppercase;display:inline-block;vertical-align:middle;
+  border:1.5px solid #ff6b5b88;border-radius:.4em;padding:.05em .45em;margin:0 .1em}
+#text.upper{text-transform:uppercase}
+#text .endmark{color:#777;font-family:var(--f-mono);font-size:.5em;letter-spacing:.3em;text-align:center;padding-top:1em}
+.fade{position:absolute;left:0;right:0;pointer-events:none}
+.fade.t{top:0;background:linear-gradient(#000 0%,#000c 30%,transparent)}
+.fade.b{bottom:0;height:22%;background:linear-gradient(transparent,#000c 70%,#000)}
+#guide{position:absolute;left:0;right:0;height:0;pointer-events:none}
+#guide::before{content:"";position:absolute;left:0;right:0;top:0;border-top:1px dashed #ffffff26}
+#guide .ar{position:absolute;top:-11px;width:0;height:0;border-top:11px solid transparent;border-bottom:11px solid transparent}
+#guide .l{left:max(4px,env(safe-area-inset-left,0px));border-left:16px solid #ff3b2b}
+#guide .r{right:max(4px,env(safe-area-inset-right,0px));border-right:16px solid #ff3b2b}
+#count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-weight:800;
+  font-size:min(40vw,40vh);color:#fff;background:#000b;z-index:3}
+#count span{animation:pop 1s ease-out}
+@keyframes pop{from{transform:scale(1.25);opacity:.2}to{transform:scale(1);opacity:1}}
+
+#hud{position:absolute;inset:0;pointer-events:none;z-index:4;transition:opacity .35s}
+#hud.hide{opacity:0}
+#hud.hide *{pointer-events:none!important}
+.hud-top{position:absolute;left:0;right:0;top:0;pointer-events:auto;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;align-items:center;gap:12px;font-family:var(--f-mono);font-size:13px;color:#bbb;font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;background:#ffffff14;color:#ddd;letter-spacing:.12em;font-size:11px}
+.pill i{width:8px;height:8px;border-radius:50%;background:#777}
+.pill.live{background:#ff3b2b22;color:#ff8a7d}
+.pill.live i{background:#ff3b2b;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+.prog{flex:1;height:4px;border-radius:2px;background:#ffffff1f;overflow:hidden;min-width:40px}
+.prog b{display:block;height:100%;width:0;background:#ff3b2b}
+.hud-bot{position:absolute;left:0;right:0;bottom:0;pointer-events:auto;
+  padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));padding-top:28px;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));
+  background:linear-gradient(transparent,#000e 40%);display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.hb{width:48px;height:48px;border-radius:12px;border:1px solid #ffffff26;background:#ffffff12;color:#fff;display:inline-flex;align-items:center;justify-content:center;padding:0;font-family:var(--f-mono);font-size:15px}
+.hb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hb.big{width:64px;height:64px;border-radius:50%;background:#ff3b2b;border-color:#ff3b2b}
+.hb.big svg{fill:#fff;stroke:none;width:26px;height:26px}
+.hb[aria-pressed="true"]{background:#fff;color:#000}
+.grp{display:inline-flex;align-items:center;gap:4px;background:#ffffff0d;border-radius:14px;padding:3px}
+.grp .val{min-width:44px;text-align:center;font-family:var(--f-mono);font-size:14px;color:#fff;font-variant-numeric:tabular-nums}
+.grp .lbl{font-size:10px;letter-spacing:.12em;color:#999;padding-left:6px}
+@media (prefers-reduced-motion: reduce){#count span,.pill.live i{animation:none}#hud{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><span class="tally" aria-hidden="true"></span>Sahne Prompter</div>
+  <button class="btn" id="newBtn" type="button">+ Yeni metin</button>
+</header>
+
+<main class="wrap">
+  <div class="row">
+    <label for="scriptSel" class="visually" style="position:absolute;left:-9999px">Kayıtlı metinler</label>
+    <select id="scriptSel" class="btn"></select>
+    <button class="btn danger" id="delBtn" type="button">Sil</button>
+  </div>
+
+  <input id="titleIn" class="field" type="text" placeholder="Başlık" autocomplete="off">
+  <textarea id="bodyIn" class="field" placeholder="Metninizi buraya yazın veya yapıştırın. [Köşeli parantez] içine yazdıklarınız kırmızı sahne notu olarak görünür."></textarea>
+  <div class="meta"><span id="statWords">0 kelime</span><span id="statTime">≈ 0:00 (140 kelime/dk)</span></div>
+
+  <div class="row">
+    <label class="btn filebtn">.txt içe aktar<input id="fileIn" type="file" accept=".txt,text/plain"></label>
+    <button class="btn" id="copyBtn" type="button">Metni kopyala</button>
+  </div>
+
+  <details class="panel" open id="pnlLook">
+    <summary>Görünüm ve hız</summary>
+    <div class="grid">
+      <div class="ctl"><label for="s_speed">Kaydırma hızı <output id="o_speed"></output></label><input id="s_speed" data-k="speed" type="range" min="0.5" max="20" step="0.5"></div>
+      <div class="ctl"><label for="s_font">Yazı boyutu <output id="o_font"></output></label><input id="s_font" data-k="font" type="range" min="20" max="140" step="2"></div>
+      <div class="ctl"><label for="s_lh">Satır aralığı <output id="o_lh"></output></label><input id="s_lh" data-k="lh" type="range" min="1" max="2.2" step="0.05"></div>
+      <div class="ctl"><label for="s_margin">Yan boşluk <output id="o_margin"></output></label><input id="s_margin" data-k="margin" type="range" min="0" max="30" step="1"></div>
+      <div class="ctl"><label for="s_guide">Okuma çizgisi konumu <output id="o_guide"></output></label><input id="s_guide" data-k="guide" type="range" min="10" max="70" step="1"></div>
+      <div class="ctl"><label>Geri sayım</label>
+        <div class="seg" data-k="countdown"><button type="button" data-v="0">Yok</button><button type="button" data-v="3">3 sn</button><button type="button" data-v="5">5 sn</button></div></div>
+      <div class="ctl"><label>Hizalama</label>
+        <div class="seg" data-k="align"><button type="button" data-v="left">Sola</button><button type="button" data-v="center">Ortaya</button></div></div>
+      <div class="ctl">
+        <label class="switch" for="s_mirrorX" style="text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg)">Ayna (yatay çevir – cam/teleprompter düzeneği)<input id="s_mirrorX" data-k="mirrorX" type="checkbox"></label>
+        <label class="switch" for="s_mirrorY" style="text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg)">Baş aşağı (dikey çevir)<input id="s_mirrorY" data-k="mirrorY" type="checkbox"></label>
+        <label class="switch" for="s_upper" style="text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg)">BÜYÜK HARF<input id="s_upper" data-k="upper" type="checkbox"></label>
+        <label class="switch" for="s_fade" style="text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg)">Okunmuş satırları karart<input id="s_fade" data-k="fade" type="checkbox"></label>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel">
+    <summary>Kontroller ve kumanda</summary>
+    <div class="help">
+      <ul>
+        <li><b>Ekrana dokun:</b> oynat / duraklat. <b>Parmakla sürükle:</b> metni ileri-geri al.</li>
+        <li><span class="cuehint">[Köşeli parantez]</span> içindeki notlar okunmaz, sahne yönergesi olarak gösterilir.</li>
+        <li>Bluetooth klavye veya sunum kumandası: <kbd>Boşluk</kbd> oynat/duraklat, <kbd>↑</kbd> <kbd>↓</kbd> hız, <kbd>←</kbd> <kbd>→</kbd> / <kbd>PgUp</kbd> <kbd>PgDn</kbd> geri-ileri atla, <kbd>+</kbd> <kbd>−</kbd> yazı boyutu, <kbd>M</kbd> ayna, <kbd>Home</kbd> başa, <kbd>Esc</kbd> çıkış.</li>
+        <li>Prompter açıkken ekran kararmaz (iOS 16.4+). Yine de Ayarlar › Ekran ve Parlaklık › Otomatik Kilit'i kontrol edin.</li>
+        <li>Metinler ve ayarlar bu cihazdaki tarayıcıda saklanır.</li>
+      </ul>
+    </div>
+  </details>
+</main>
+
+<div class="startbar"><button id="startBtn" type="button">
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8z" fill="currentColor"/></svg>Prompter'ı başlat</button></div>
+
+<div id="prompter" hidden>
+  <div id="stage">
+    <div id="scroller"><div id="text"></div></div>
+    <div class="fade t" id="fadeT"></div>
+    <div class="fade b"></div>
+    <div id="guide"><span class="ar l"></span><span class="ar r"></span></div>
+  </div>
+  <div id="count" hidden></div>
+  <div id="hud">
+    <div class="hud-top">
+      <span class="pill" id="pill"><i></i><span id="pillTxt">HAZIR</span></span>
+      <span id="tElapsed">0:00</span>
+      <div class="prog"><b id="progBar"></b></div>
+      <span id="tRemain">−0:00</span>
+    </div>
+    <div class="hud-bot">
+      <button class="hb" id="hExit" type="button" aria-label="Çıkış"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="hb" id="hRestart" type="button" aria-label="Başa sar"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5"/></svg></button>
+      <div class="grp"><span class="lbl">HIZ</span>
+        <button class="hb" id="hSlow" type="button" aria-label="Yavaşlat">−</button>
+        <span class="val" id="hSpeed">5</span>
+        <button class="hb" id="hFast" type="button" aria-label="Hızlandır">+</button></div>
+      <button class="hb big" id="hPlay" type="button" aria-label="Oynat"><svg viewBox="0 0 24 24" id="playIco"><path d="M7 4l13 8-13 8z"/></svg></button>
+      <div class="grp"><span class="lbl">YAZI</span>
+        <button class="hb" id="hSmall" type="button" aria-label="Yazıyı küçült">A−</button>
+        <span class="val" id="hFont">44</span>
+        <button class="hb" id="hBig" type="button" aria-label="Yazıyı büyüt">A+</button></div>
+      <button class="hb" id="hMirror" type="button" aria-label="Ayna" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3v18M9 7L4 12l5 5M15 7l5 5-5 5"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+const SAMPLE = {
+  id: 'ornek', title: 'Örnek: Ürün tanıtım videosu',
+  body: `[Kameraya bak, gülümse]
+Merhaba, ben Deniz. Bugün size üç dakikada yeni mobil uygulamamızı anlatacağım.
+
+Hepimiz gün içinde onlarca küçük işi aklımızda tutmaya çalışıyoruz. Toplantılar, faturalar, aranacak kişiler. Bir noktada bir şey mutlaka unutuluyor.
+
+[Kısa duraklama]
+İşte tam bu yüzden bu uygulamayı geliştirdik. Telefonunuza bir cümle söylüyorsunuz, uygulama onu doğru güne ve doğru saate yerleştiriyor.
+
+İlk ayın sonunda kullanıcılarımızın yüzde seksen ikisi, unuttukları işlerin belirgin şekilde azaldığını söyledi.
+
+[Ekranda uygulama görüntüsü]
+Kurulum bir dakikadan kısa sürüyor. Hesap açmanız bile gerekmiyor.
+
+Açıklamadaki bağlantıdan hemen deneyebilirsiniz. İzlediğiniz için teşekkürler, bir sonraki videoda görüşmek üzere.
+
+[Kameraya bak, iki saniye bekle]`
+};
+const DEF = { speed:5, font:40, lh:1.4, margin:6, guide:32, countdown:3, align:'left', mirrorX:false, mirrorY:false, upper:false, fade:true };
+
+let scripts = store.get('sp.scripts', null);
+if(!Array.isArray(scripts) || !scripts.length) scripts = [ {...SAMPLE, updated: Date.now()} ];
+let curId = store.get('sp.cur', scripts[0].id);
+if(!scripts.find(s=>s.id===curId)) curId = scripts[0].id;
+let S = Object.assign({}, DEF, store.get('sp.settings', {}));
+
+const cur = () => scripts.find(s=>s.id===curId);
+let saveT;
+function save(){ clearTimeout(saveT); saveT = setTimeout(()=>{ store.set('sp.scripts', scripts); store.set('sp.cur', curId); store.set('sp.settings', S); }, 250); }
+
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1300); }
+
+/* ---------- Editör ---------- */
+const sel=$('#scriptSel'), titleIn=$('#titleIn'), bodyIn=$('#bodyIn');
+function fillSelect(){
+  sel.innerHTML='';
+  scripts.slice().sort((a,b)=>b.updated-a.updated).forEach(s=>{
+    const o=document.createElement('option'); o.value=s.id; o.textContent=s.title||'Başlıksız'; sel.appendChild(o);
+  });
+  sel.value=curId;
+}
+function loadCur(){ const c=cur(); titleIn.value=c.title; bodyIn.value=c.body; stats(); }
+function fmt(sec){ sec=Math.max(0,Math.round(sec)); const m=Math.floor(sec/60), s=sec%60; return m+':'+String(s).padStart(2,'0'); }
+function stats(){
+  const words = bodyIn.value.replace(/\[[^\]]*\]/g,' ').split(/\s+/).filter(Boolean).length;
+  $('#statWords').textContent = words+' kelime · '+bodyIn.value.length+' karakter';
+  $('#statTime').textContent = '≈ '+fmt(words/140*60)+' konuşma (140 kelime/dk)';
+}
+sel.addEventListener('change',()=>{ curId=sel.value; loadCur(); save(); });
+titleIn.addEventListener('input',()=>{ const c=cur(); c.title=titleIn.value; c.updated=Date.now(); const o=sel.querySelector(`option[value="${c.id}"]`); if(o) o.textContent=c.title||'Başlıksız'; save(); });
+bodyIn.addEventListener('input',()=>{ const c=cur(); c.body=bodyIn.value; c.updated=Date.now(); stats(); save(); });
+$('#newBtn').addEventListener('click',()=>{
+  const s={id:'s'+Date.now().toString(36), title:'Yeni metin', body:'', updated:Date.now()};
+  scripts.push(s); curId=s.id; fillSelect(); loadCur(); save(); titleIn.select(); bodyIn.focus();
+});
+let armT;
+$('#delBtn').addEventListener('click',e=>{
+  const b=e.currentTarget;
+  if(!b.classList.contains('armed')){ b.classList.add('armed'); b.textContent='Silinsin mi?'; armT=setTimeout(()=>{b.classList.remove('armed'); b.textContent='Sil';},3000); return; }
+  clearTimeout(armT); b.classList.remove('armed'); b.textContent='Sil';
+  scripts=scripts.filter(s=>s.id!==curId);
+  if(!scripts.length) scripts=[{id:'s'+Date.now().toString(36), title:'Yeni metin', body:'', updated:Date.now()}];
+  curId=scripts[0].id; fillSelect(); loadCur(); save(); toast('Metin silindi');
+});
+$('#fileIn').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ const s={id:'s'+Date.now().toString(36), title:f.name.replace(/\.[^.]+$/,''), body:String(r.result), updated:Date.now()};
+    scripts.push(s); curId=s.id; fillSelect(); loadCur(); save(); toast('İçe aktarıldı'); };
+  r.readAsText(f); e.target.value='';
+});
+$('#copyBtn').addEventListener('click',()=>{
+  const p = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(bodyIn.value) : Promise.reject();
+  p.then(()=>toast('Kopyalandı')).catch(()=>{ bodyIn.focus(); bodyIn.select(); toast('Metin seçildi, kopyalayın'); });
+});
+
+/* Ayar kontrolleri */
+const fmtOut = { speed:v=>(+v).toFixed(1), font:v=>v+' px', lh:v=>(+v).toFixed(2), margin:v=>v+' %', guide:v=>v+' %' };
+document.querySelectorAll('input[data-k]').forEach(inp=>{
+  const k=inp.dataset.k;
+  if(inp.type==='checkbox'){ inp.checked=!!S[k]; inp.addEventListener('change',()=>{ S[k]=inp.checked; save(); }); }
+  else { inp.value=S[k]; const out=$('#o_'+k); const upd=()=>{ if(out) out.textContent=fmtOut[k](inp.value); };
+    upd(); inp.addEventListener('input',()=>{ S[k]=+inp.value; upd(); save(); }); }
+});
+document.querySelectorAll('.seg[data-k]').forEach(seg=>{
+  const k=seg.dataset.k;
+  const paint=()=>seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v)===String(S[k])));
+  paint();
+  seg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; S[k]= k==='countdown' ? +b.dataset.v : b.dataset.v; paint(); save(); });
+});
+function syncEditorControls(){
+  ['speed','font'].forEach(k=>{ const i=$('#s_'+k); i.value=S[k]; $('#o_'+k).textContent=fmtOut[k](S[k]); });
+  $('#s_mirrorX').checked=S.mirrorX;
+}
+
+/* ---------- Prompter ---------- */
+const P=$('#prompter'), stage=$('#stage'), scroller=$('#scroller'), textEl=$('#text'), guideEl=$('#guide'), hud=$('#hud');
+let offset=0, maxOff=1, guideY=0, lhPx=60, playing=false, elapsed=0, last=0, raf=0, dragging=false, counting=false, cdTimer=0, hudT=0, wakeLock=null, lastTimeTxt=0;
+
+function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function renderText(body){
+  const paras = body.replace(/\r/g,'').split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);
+  const html = paras.map(p=>'<p>'+esc(p).replace(/\[([^\]\n]+)\]/g,'<span class="cue">$1</span>').replace(/\n/g,'<br>')+'</p>').join('');
+  textEl.innerHTML = (html || '<p><span class="cue">Metin boş</span></p>') + '<div class="endmark">— SON —</div>';
+}
+const pps = () => S.speed * S.font * 0.2; // piksel/saniye
+
+function applyStyle(){
+  textEl.style.fontSize=S.font+'px';
+  textEl.style.lineHeight=S.lh;
+  textEl.style.textAlign=S.align;
+  textEl.style.paddingLeft=`max(${S.margin}vw, calc(env(safe-area-inset-left,0px) + 24px))`;
+  textEl.style.paddingRight=`max(${S.margin}vw, calc(env(safe-area-inset-right,0px) + 24px))`;
+  textEl.classList.toggle('upper', !!S.upper);
+  stage.style.transform=`scale(${S.mirrorX?-1:1},${S.mirrorY?-1:1})`;
+  $('#hMirror').setAttribute('aria-pressed', String(!!S.mirrorX));
+  $('#hSpeed').textContent=(+S.speed).toFixed(1);
+  $('#hFont').textContent=S.font;
+}
+function layout(keepRatio){
+  const ratio = maxOff>0 ? offset/maxOff : 0;
+  applyStyle();
+  const vh = stage.clientHeight;
+  guideY = vh*S.guide/100;
+  lhPx = S.font*S.lh;
+  guideEl.style.top=guideY+'px';
+  const ft=$('#fadeT'); ft.hidden=!S.fade; ft.style.height=Math.max(0,guideY-lhPx*0.9)+'px';
+  maxOff = Math.max(1, textEl.offsetHeight - lhPx*1.2);
+  if(keepRatio) offset = ratio*maxOff;
+  offset = Math.min(Math.max(0,offset),maxOff);
+  draw(true);
+}
+function draw(force){
+  scroller.style.transform=`translate3d(0,${(guideY - lhPx/2 - offset).toFixed(2)}px,0)`;
+  const now=performance.now();
+  if(force || now-lastTimeTxt>200){
+    lastTimeTxt=now;
+    $('#progBar').style.width=(offset/maxOff*100).toFixed(2)+'%';
+    $('#tElapsed').textContent=fmt(elapsed);
+    $('#tRemain').textContent='−'+fmt((maxOff-offset)/pps());
+  }
+}
+function frame(t){
+  const dt = last ? Math.min(0.1,(t-last)/1000) : 0; last=t;
+  if(playing && !dragging){
+    offset += pps()*dt; elapsed += dt;
+    if(offset>=maxOff){ offset=maxOff; pause(); setPill('SON',false); }
+  }
+  draw(false);
+  raf=requestAnimationFrame(frame);
+}
+function setPill(txt,live){ $('#pillTxt').textContent=txt; $('#pill').classList.toggle('live',live); }
+function setPlayIcon(){ $('#playIco').innerHTML = playing ? '<path d="M7 4h4v16H7zM13 4h4v16h-4z"/>' : '<path d="M7 4l13 8-13 8z"/>'; $('#hPlay').setAttribute('aria-label', playing?'Duraklat':'Oynat'); }
+function showHud(stay){ hud.classList.remove('hide'); clearTimeout(hudT); if(playing && !stay) hudT=setTimeout(()=>hud.classList.add('hide'),2200); }
+
+async function lockScreen(){ try{ if('wakeLock' in navigator && !wakeLock){ wakeLock=await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>{wakeLock=null;}); } }catch(e){} }
+function unlockScreen(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=null; }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && !P.hidden) lockScreen(); else if(playing) pause(); });
+
+function cancelCount(){ clearTimeout(cdTimer); counting=false; $('#count').hidden=true; }
+function play(){
+  if(counting) return;
+  if(offset>=maxOff-1){ offset=0; elapsed=0; }
+  lockScreen();
+  const go=()=>{ counting=false; $('#count').hidden=true; playing=true; last=0; setPill('CANLI',true); setPlayIcon(); showHud(); };
+  if(offset<1 && S.countdown>0){
+    counting=true; let n=S.countdown; const c=$('#count'); c.hidden=false; hud.classList.add('hide');
+    const step=()=>{ if(!counting) return; if(n<=0) return go(); c.innerHTML='<span>'+n+'</span>'; n--; cdTimer=setTimeout(step,1000); };
+    step();
+  } else go();
+}
+function pause(){ cancelCount(); playing=false; setPill('DURAKLADI',false); setPlayIcon(); showHud(true); }
+function toggle(){ if(counting){ cancelCount(); pause(); return; } playing ? pause() : play(); }
+function nudge(lines){ offset=Math.min(Math.max(0,offset+lines*lhPx),maxOff); draw(true); }
+function setSpeed(d){ S.speed=Math.min(20,Math.max(0.5,Math.round((S.speed+d)*2)/2)); applyStyle(); draw(true); save(); syncEditorControls(); toast('Hız '+S.speed.toFixed(1)); }
+function setFont(d){ S.font=Math.min(140,Math.max(20,S.font+d)); layout(true); save(); syncEditorControls(); toast('Yazı '+S.font+' px'); }
+function toggleMirror(){ S.mirrorX=!S.mirrorX; applyStyle(); save(); syncEditorControls(); toast(S.mirrorX?'Ayna açık':'Ayna kapalı'); }
+
+function openPrompter(){
+  renderText(bodyIn.value);
+  P.hidden=false; document.body.style.overflow='hidden';
+  try{ const r=document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); r && r.catch && r.catch(()=>{}); }catch(e){}
+  offset=0; elapsed=0; last=0; playing=false; setPill('HAZIR',false); setPlayIcon();
+  requestAnimationFrame(()=>{ layout(false); play(); });
+  cancelAnimationFrame(raf); raf=requestAnimationFrame(frame);
+}
+function closePrompter(){
+  pause(); cancelAnimationFrame(raf); unlockScreen();
+  P.hidden=true; document.body.style.overflow='';
+  try{ document.fullscreenElement && document.exitFullscreen().catch(()=>{}); }catch(e){}
+}
+$('#startBtn').addEventListener('click',openPrompter);
+$('#hExit').addEventListener('click',closePrompter);
+$('#hRestart').addEventListener('click',()=>{ pause(); offset=0; elapsed=0; draw(true); setPill('HAZIR',false); });
+$('#hPlay').addEventListener('click',toggle);
+$('#hSlow').addEventListener('click',()=>{ setSpeed(-0.5); showHud(); });
+$('#hFast').addEventListener('click',()=>{ setSpeed(0.5); showHud(); });
+$('#hSmall').addEventListener('click',()=>{ setFont(-4); showHud(); });
+$('#hBig').addEventListener('click',()=>{ setFont(4); showHud(); });
+$('#hMirror').addEventListener('click',()=>{ toggleMirror(); showHud(); });
+$('#count').addEventListener('click',toggle);
+hud.addEventListener('pointerdown',e=>{ if(e.target.closest('.hud-top,.hud-bot')) e.stopPropagation(); });
+
+/* Dokunma ve sürükleme */
+let sy=0, so=0, moved=false, pid=null;
+stage.addEventListener('pointerdown',e=>{ pid=e.pointerId; dragging=true; moved=false; sy=e.clientY; so=offset; try{stage.setPointerCapture(pid);}catch(_){} });
+stage.addEventListener('pointermove',e=>{
+  if(!dragging || e.pointerId!==pid) return;
+  const dy=e.clientY-sy;
+  if(Math.abs(dy)>8) moved=true;
+  if(moved){ offset=Math.min(Math.max(0, so - dy*(S.mirrorY?-1:1)), maxOff); draw(true); }
+});
+const endDrag=e=>{ if(!dragging) return; dragging=false; last=0; if(!moved && e.type==='pointerup') toggle(); else if(playing) showHud(); };
+stage.addEventListener('pointerup',endDrag);
+stage.addEventListener('pointercancel',endDrag);
+stage.addEventListener('wheel',e=>{ e.preventDefault(); offset=Math.min(Math.max(0,offset+e.deltaY),maxOff); draw(true); },{passive:false});
+
+/* Klavye / Bluetooth kumanda */
+document.addEventListener('keydown',e=>{
+  if(P.hidden) return;
+  const k=e.key; let h=true;
+  if(k===' '||k==='Enter'||k==='MediaPlayPause') toggle();
+  else if(k==='ArrowUp') setSpeed(0.5);
+  else if(k==='ArrowDown') setSpeed(-0.5);
+  else if(k==='ArrowRight'||k==='PageDown') nudge(3);
+  else if(k==='ArrowLeft'||k==='PageUp') nudge(-3);
+  else if(k==='+'||k==='=') setFont(4);
+  else if(k==='-'||k==='_') setFont(-4);
+  else if(k==='m'||k==='M') toggleMirror();
+  else if(k==='Home'){ pause(); offset=0; elapsed=0; draw(true); }
+  else if(k==='Escape') closePrompter();
+  else h=false;
+  if(h) e.preventDefault();
+});
+let rT; window.addEventListener('resize',()=>{ if(P.hidden) return; clearTimeout(rT); rT=setTimeout(()=>layout(true),120); });
+
+fillSelect(); loadCur();
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+})();
+</script>
+
+</body>
+</html>
